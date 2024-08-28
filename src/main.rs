@@ -5,6 +5,8 @@ use newton::NewtonSolver;
 use poly::Polygon;
 
 mod affine;
+mod grad;
+mod hess;
 mod mass;
 mod newton;
 mod poly;
@@ -28,20 +30,24 @@ fn main() {
     ];
 
     let polygon = Polygon::new(nodes, 3f32);
-    dbg!(polygon.mass_matrix());
+    // dbg!(polygon.mass_matrix());
 
-    let mut ab = AffineBody::new(polygon);
+    let kappa: f32 = 100000.0;
+
+    let mut ab = AffineBody::new(polygon, kappa);
 
     let n_step = 100;
     let newton = NewtonSolver {
-        max_iter: 100,
+        max_iter: 500,
         tol: 0.001,
+        c: 0.001,
+        beta: 0.5,
     };
 
     for i in 0..n_step {
         ab.prepare();
         let q0 = ab.qtilde;
-        let q = newton.solve(&ab, q0);
+        let q = newton.solve_damped(&ab, q0);
         ab.post(&q);
 
         println!("step {}", i);

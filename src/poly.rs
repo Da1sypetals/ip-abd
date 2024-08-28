@@ -91,7 +91,7 @@ impl Polygon {
         let mut res = Mat6x6::zeros();
         for (edge, positive) in self._edges.iter().zip(self._positive.iter()) {
             let mat = density * mass_matrix_per_triangle(edge.0, edge.1);
-            dbg!(*positive);
+            // dbg!(*positive);
             res += if *positive { mat } else { -mat };
         }
         self._mass = res;
