@@ -1,5 +1,9 @@
 use crate::{
+    accd::AccdMassive,
     affine::{AffineBody, AffineDof},
+    bound::Boundary,
+    dhat,
+    grad_contact::PointContactArg,
     hess::subhess,
     mass::Vec6,
 };
@@ -9,6 +13,26 @@ pub struct NewtonSolver {
     pub tol: f32,
     pub c: f32,    // Armijo 条件中的常数
     pub beta: f32, // 步长缩放因子
+}
+
+pub fn collect_contacts(ab: &AffineBody, q: &Vec6) -> Vec<PointContactArg> {
+    let mut res = Vec::<PointContactArg>::new();
+    for i in 0..ab.poly.n {
+        for (u, v) in Boundary::edges() {
+            // for edge in world boundaries
+            let contact = PointContactArg {
+                u,
+                v,
+                p: ab.poly.pos_init(i),
+                q: q.clone(),
+            };
+
+            if contact.distance() < dhat {
+                res.push(contact);
+            }
+        }
+    }
+    res
 }
 
 impl NewtonSolver {
@@ -58,24 +82,22 @@ impl NewtonSolver {
             let grad = ab.grad(&q);
             let hess = ab.hess(&q);
 
+            // dbg!(&grad);
+            // dbg!(&hess);
+
             let dir = hess.try_inverse().expect("hess not invertible!") * (-grad);
             if dir.magnitude() < self.tol {
                 break;
             }
 
-            let mut alpha = 1f32;
-            // // inversion aware line search
-            // while !((q + alpha * dir).all_eig_of_a_is_positive()) {
-            //     alpha *= self.beta;
-            // }
-
+            let ccd = AccdMassive::new(0.1, 100);
+            let mut alpha = ccd.toi(ab, &q, &dir);
             // armijo condition
             while ab.potential(&(q + alpha * dir))
                 > ab.potential(&q) + self.c * alpha * grad.dot(&dir)
             {
                 alpha *= self.beta;
             }
-            println!("alpha = {}", alpha);
 
             q += alpha * dir;
 

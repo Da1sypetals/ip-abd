@@ -3,6 +3,7 @@ use crate::mass::{j_per_triangle, mass_matrix_per_triangle, Mat2x6, Mat6x2, Mat6
 pub struct Polygon {
     /// Stored in order:
     /// edges are: (0, 1), (1, 2), ..., (n-1, 0)
+    pub n: usize,
     pub nodes: Vec<glm::Vec2>,
     _edges: Vec<(glm::Vec2, glm::Vec2)>,
     _normals: Vec<glm::Vec2>,
@@ -123,6 +124,7 @@ impl Polygon {
         );
 
         let mut res = Self {
+            n: nodes.len(),
             nodes,
             _edges: Vec::new(),
             _normals: Vec::new(),
@@ -137,6 +139,14 @@ impl Polygon {
         res.init(density);
 
         res
+    }
+
+    pub fn pos_init(&self, i: usize) -> glm::Vec2 {
+        self.nodes[i]
+    }
+
+    pub fn edges(&self, i: usize) -> (glm::Vec2, glm::Vec2) {
+        self._edges[i]
     }
 
     pub fn volume(&self) -> f32 {

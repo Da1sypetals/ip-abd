@@ -1,8 +1,11 @@
 use crate::{
+    contact::ContactIp,
     dt, g,
     grad::_grad,
+    grad_contact::PointContactArg,
     hess::_hess,
     mass::{Mat6x6, Vec6},
+    newton::collect_contacts,
     poly::Polygon,
 };
 
@@ -43,7 +46,8 @@ pub struct AffineBody {
     pub q: Vec6,
     pub dq: Vec6,
     pub qtilde: Vec6,
-    pub orth: OrthPotential,
+    pub orth: OrthIp,
+    pub contact_ip: ContactIp,
 }
 
 impl AffineBody {
@@ -55,7 +59,8 @@ impl AffineBody {
             q: q0,
             dq: Vec6::zeros(),
             qtilde: Vec6::zeros(),
-            orth: OrthPotential { kappa },
+            orth: OrthIp { kappa },
+            contact_ip: ContactIp,
         }
     }
 
@@ -67,33 +72,48 @@ impl AffineBody {
 
     pub fn potential(&self, q: &Vec6) -> f32 {
         // inertial
+        let con = &collect_contacts(self, q);
         let qdiff = q - self.qtilde;
         let inertial = 0.5f32 * (qdiff.transpose() * self.poly.mass_matrix() * qdiff).x;
-        inertial + self.orth.potential(q)
+        inertial + self.orth.potential(q) + self.contact_ip.potential(q, con)
     }
 
     pub fn grad(&self, q: &Vec6) -> Vec6 {
         // mass matrix is symmetric
+        let con = &collect_contacts(self, q);
         let inertial = self.poly.mass_matrix() * (q - self.qtilde);
-        inertial + self.orth.grad(q)
+        inertial + self.orth.grad(q) + self.contact_ip.grad(q, con)
     }
 
     pub fn hess(&self, q: &Vec6) -> Mat6x6 {
+        let con = &collect_contacts(self, q);
         let inertial = self.poly.mass_matrix();
-        inertial + self.orth.hess(q)
+        inertial + self.orth.hess(q) + self.contact_ip.hess(q, con)
     }
 
     pub fn post(&mut self, new_q: &Vec6) {
         self.dq = (new_q - self.q) / dt;
         self.q = new_q.clone();
     }
+
+    pub fn pos(&self, q: &Vec6, i: usize) -> glm::Vec2 {
+        let (a11, a12, a21, a22) = q.a();
+        let (tx, ty) = q.t();
+        let p = self.poly.pos_init(i);
+        glm::vec2(a11 * p.x + a12 * p.y + tx, a21 * p.x + a22 * p.y + ty)
+    }
+    pub fn posdir(&self, q: &Vec6, qdir: &Vec6, i: usize) -> glm::Vec2 {
+        let xcur = self.pos(q, i);
+        let xnext = self.pos(&(q + qdir), i);
+        xnext - xcur
+    }
 }
 
-pub struct OrthPotential {
+pub struct OrthIp {
     kappa: f32,
 }
 
-impl OrthPotential {
+impl OrthIp {
     pub fn potential(&self, q: &Vec6) -> f32 {
         let (a11, a12, a21, a22) = q.a();
         self.kappa
