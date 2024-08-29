@@ -19,6 +19,7 @@ impl Polygon {
     fn init(&mut self, density: f32) {
         self.init_edges();
         self.init_normals_positive_volume();
+        // dbg!(&self._positive);
         self.init_mass_matrix(density);
         self.init_j(density);
     }
@@ -61,6 +62,10 @@ impl Polygon {
             // revert all normals
             for n in &mut self._normals {
                 *n *= -1f32;
+            }
+            // revert positive marker
+            for p in &mut self._positive {
+                *p = !(*p);
             }
         }
 
@@ -105,6 +110,7 @@ impl Polygon {
 
             res += if *positive { mat } else { -mat };
         }
+        // dbg!(res);
         self._j = res;
     }
 }

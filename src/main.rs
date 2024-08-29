@@ -39,19 +39,22 @@ fn main() {
     let n_step = 100;
     let newton = NewtonSolver {
         max_iter: 500,
-        tol: 0.001,
+        tol: 0.0001,
         c: 0.001,
         beta: 0.5,
     };
 
     for i in 0..n_step {
         ab.prepare();
-        let q0 = ab.qtilde;
+
+        let q0 = ab.q;
         let q = newton.solve_damped(&ab, q0);
         ab.post(&q);
 
         println!("step {}", i);
         dbg!(&ab.q);
+        dbg!(ab.orth.potential(&q));
+
         pause();
     }
 }

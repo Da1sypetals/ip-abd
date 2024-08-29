@@ -9,6 +9,7 @@ use crate::{
 pub trait AffineDof {
     fn t(&self) -> (f32, f32);
     fn a(&self) -> (f32, f32, f32, f32);
+    fn all_eig_of_a_is_positive(&self) -> bool;
 }
 
 impl AffineDof for Vec6 {
@@ -18,6 +19,21 @@ impl AffineDof for Vec6 {
 
     fn a(&self) -> (f32, f32, f32, f32) {
         (self.z, self.w, self.a, self.b)
+    }
+
+    fn all_eig_of_a_is_positive(&self) -> bool {
+        // sequential major of a
+        let (a11, a12, a21, a22) = self.a();
+
+        if a11 <= 0f32 {
+            // 1st sequential major
+            return false;
+        }
+        if a11 * a22 - a21 * a12 <= 0f32 {
+            // 2nd sequential major
+            return false;
+        }
+        true
     }
 }
 
@@ -32,7 +48,8 @@ pub struct AffineBody {
 
 impl AffineBody {
     pub fn new(poly: Polygon, kappa: f32) -> Self {
-        let q0 = Vec6::new(0.0, 0.0, 1.0, 0.0, 0.0, 1.0);
+        let scale = 1f32;
+        let q0 = Vec6::new(0.0, 0.0, scale, 0.0, 0.0, scale);
         Self {
             poly,
             q: q0,
@@ -72,7 +89,7 @@ impl AffineBody {
     }
 }
 
-struct OrthPotential {
+pub struct OrthPotential {
     kappa: f32,
 }
 
