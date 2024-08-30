@@ -42,15 +42,7 @@ fn pause() {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let nodes = vec![
-        glm::Vec2::new(0.0, 0.0),
-        glm::Vec2::new(0.1, 0.3),
-        glm::Vec2::new(0.2, 0.2),
-        glm::Vec2::new(0.3, 0.5),
-        glm::Vec2::new(0.2, 0.0),
-    ];
-
-    let polygon = Polygon::new(nodes, 3f32);
+    let polygon = Polygon::from_file("a.poly").expect("Failure when reading polygon from file!");
     // dbg!(polygon.mass_matrix());
 
     let kappa: f32 = 1.0;

@@ -1,4 +1,6 @@
 use crate::mass::{j_per_triangle, mass_matrix_per_triangle, Mat2x6, Mat6x2, Mat6x6, Vec6};
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
 
 pub struct Polygon {
     /// Stored in order:
@@ -117,6 +119,81 @@ impl Polygon {
 }
 
 impl Polygon {
+    pub fn from_file(path: &str) -> io::Result<Self> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut nodes = Vec::new();
+        let mut density = 0.0;
+        let mut section = None;
+
+        for line in reader.lines() {
+            let line = line?;
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+
+            if line.starts_with("!") {
+                match line.split_whitespace().next().unwrap() {
+                    "!density" => {
+                        if let Some(density_str) = line.split_whitespace().nth(1) {
+                            density = density_str.parse().map_err(|_| {
+                                io::Error::new(io::ErrorKind::InvalidData, "Invalid density format")
+                            })?;
+                        } else {
+                            return Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                "Density value missing",
+                            ));
+                        }
+                        section = None; // Move to the next section
+                    }
+                    "!nodes" => section = Some("nodes"),
+                    "!end" => break,
+                    _ => {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            "Unknown section",
+                        ))
+                    }
+                }
+                continue;
+            }
+
+            match section {
+                Some("nodes") => {
+                    let coords: Vec<f32> = line
+                        .split_whitespace()
+                        .map(|s| {
+                            s.parse().map_err(|_| {
+                                io::Error::new(io::ErrorKind::InvalidData, "Invalid node format")
+                            })
+                        })
+                        .collect::<Result<Vec<f32>, _>>()?;
+                    if coords.len() != 2 {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            "Each node must have exactly 2 coordinates",
+                        ));
+                    }
+                    nodes.push(glm::vec2(coords[0], coords[1]));
+                }
+                _ => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "Unexpected data outside of sections",
+                    ))
+                }
+            }
+        }
+
+        if nodes.is_empty() {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "No nodes found"));
+        }
+
+        Ok(Self::new(nodes, density))
+    }
+
     pub fn new(nodes: Vec<glm::Vec2>, density: f32) -> Self {
         assert!(
             nodes.len() >= 3,
